@@ -55,7 +55,7 @@ const ExportPanel = ({ images, audioFile, beats, isProcessing }: ExportPanelProp
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'beatframe-video.webm'; // Using .webm format
+      a.download = 'beatframe-video.webm'; // Changed to .webm since we're using webm format
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -103,7 +103,7 @@ const ExportPanel = ({ images, audioFile, beats, isProcessing }: ExportPanelProp
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
             <span>Format</span>
-            <span className="font-medium">WebM (VP9)</span>
+            <span className="font-medium">MP4</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>Resolution</span>

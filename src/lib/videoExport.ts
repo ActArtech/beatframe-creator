@@ -88,134 +88,95 @@ export const exportVideo = async ({
     mediaRecorder.start(1000); // Collect data in 1-second chunks
     
     // Prepare for rendering frames
-    const imageElements: HTMLImageElement[] = [];
-    let loadedImages = 0;
+    let currentImageIndex = 0;
+    let lastBeatTime = 0;
+    let startTime = performance.now();
     
-    // Preload all images to ensure smooth transitions
-    images.forEach((src, index) => {
-      const img = new Image();
-      img.onload = () => {
-        loadedImages++;
-        if (loadedImages === images.length) {
-          startRendering();
+    // Report initial progress
+    onProgress(10);
+    console.log('Preparing audio track...');
+    
+    // Play the audio
+    audio.play();
+    
+    // Report next progress step
+    onProgress(20);
+    console.log('Processing image sequence...');
+    
+    // Animation function to render frames based on beat timing
+    const renderFrame = () => {
+      const currentTime = (performance.now() - startTime) / 1000;
+      
+      // Find the current beat
+      let currentBeatIndex = 0;
+      for (let i = 0; i < beats.length; i++) {
+        if (beats[i].time <= currentTime) {
+          currentBeatIndex = i;
+        } else {
+          break;
         }
-      };
-      img.onerror = (e) => {
-        console.error(`Error loading image ${index}:`, e);
-        loadedImages++;
-        if (loadedImages === images.length) {
-          startRendering();
-        }
-      };
-      img.src = src;
-      imageElements.push(img);
-    });
-    
-    // Track time and beat state
-    let startTime: number;
-    let currentBeatIndex = -1;
-    let currentImageIndex = -1;
-    
-    // Function to draw an image properly centered and fitted in the canvas
-    const drawImageToCanvas = (img: HTMLImageElement) => {
-      // Clear canvas first
+      }
+      
+      // If we've hit a new beat, change the image
+      if (currentBeatIndex > 0 && beats[currentBeatIndex].time !== lastBeatTime) {
+        currentImageIndex = currentBeatIndex % images.length;
+        lastBeatTime = beats[currentBeatIndex].time;
+      }
+      
+      // Clear canvas and draw the current image
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
       
-      // Calculate proportional sizing to fit within canvas
-      const imgRatio = img.width / img.height;
-      const canvasRatio = width / height;
-      
-      let drawWidth, drawHeight, x, y;
-      
-      if (imgRatio > canvasRatio) {
-        // Image is wider relative to canvas
-        drawWidth = width;
-        drawHeight = width / imgRatio;
-        x = 0;
-        y = (height - drawHeight) / 2;
-      } else {
-        // Image is taller relative to canvas
-        drawHeight = height;
-        drawWidth = height * imgRatio;
-        x = (width - drawWidth) / 2;
-        y = 0;
-      }
-      
-      ctx.drawImage(img, x, y, drawWidth, drawHeight);
-    };
-
-    const startRendering = () => {
-      onProgress(30);
-      console.log('Synchronizing with beat data...');
-      
-      // Set initial image
-      if (imageElements.length > 0) {
-        drawImageToCanvas(imageElements[0]);
-      }
-      
-      // Start the audio and the animation
-      startTime = performance.now();
-      audio.play();
-      
-      // Animation loop for rendering frames
-      const renderFrame = () => {
-        const currentTime = (performance.now() - startTime) / 1000;
+      // Load and draw the current image
+      const img = new Image();
+      img.onload = () => {
+        // Calculate proportional sizing to fit within canvas
+        const imgRatio = img.width / img.height;
+        const canvasRatio = width / height;
         
-        // Find the correct beat for the current time
-        // Updated logic to properly determine what image to show
-        let newBeatIndex = -1;
+        let drawWidth, drawHeight, x, y;
         
-        // Find the beat that corresponds to the current time
-        for (let i = 0; i < beats.length; i++) {
-          if (beats[i].time <= currentTime) {
-            newBeatIndex = i;
-          } else {
-            break;
-          }
-        }
-        
-        // If we've reached a new beat, update the image
-        if (newBeatIndex !== currentBeatIndex) {
-          currentBeatIndex = newBeatIndex;
-          
-          // Calculate which image to show based on the beat index
-          // Change images less frequently by using integer division
-          const newImageIndex = currentBeatIndex >= 0 ? Math.floor(currentBeatIndex / 2) % images.length : 0;
-          
-          if (newImageIndex !== currentImageIndex) {
-            currentImageIndex = newImageIndex;
-            // Draw the new image if it's loaded
-            if (imageElements[currentImageIndex]) {
-              drawImageToCanvas(imageElements[currentImageIndex]);
-            }
-          }
-        }
-        
-        // Update progress
-        const progress = Math.min(90, 30 + (currentTime / audio.duration) * 60);
-        onProgress(progress);
-        
-        // Continue animation if not finished
-        if (currentTime < audio.duration) {
-          requestAnimationFrame(renderFrame);
+        if (imgRatio > canvasRatio) {
+          // Image is wider relative to canvas
+          drawWidth = width;
+          drawHeight = width / imgRatio;
+          x = 0;
+          y = (height - drawHeight) / 2;
         } else {
-          // Finish recording when audio ends
-          setTimeout(() => {
-            mediaRecorder.stop();
-            audio.pause();
-          }, 500); // Add a small delay to capture the last frame
+          // Image is taller relative to canvas
+          drawHeight = height;
+          drawWidth = height * imgRatio;
+          x = (width - drawWidth) / 2;
+          y = 0;
         }
+        
+        ctx.drawImage(img, x, y, drawWidth, drawHeight);
       };
+      img.src = images[currentImageIndex];
       
-      // Start the rendering loop
-      renderFrame();
+      // Update progress based on audio time
+      const progress = Math.min(90, 20 + (currentTime / audio.duration) * 70);
+      onProgress(progress);
+      
+      // Continue animating if we're still recording
+      if (currentTime < audio.duration) {
+        requestAnimationFrame(renderFrame);
+      } else {
+        // Stop recording when audio finishes
+        mediaRecorder.stop();
+        audio.pause();
+      }
     };
     
-    // If we have no images to load, start immediately
-    if (images.length === 0) {
-      startRendering();
-    }
+    // Start the frame rendering
+    onProgress(30);
+    console.log('Synchronizing with beat data...');
+    
+    // Wait a moment for everything to initialize
+    setTimeout(() => {
+      startTime = performance.now();
+      renderFrame();
+    }, 500);
   });
 };
 
@@ -234,6 +195,6 @@ export const getImageForTime = (time: number, beats: BeatInfo[], images: string[
     }
   }
   
-  // Change images less frequently by using integer division
-  return Math.floor(closestBeatIndex / 2) % images.length;
+  // Map beat index to image index, cycling through available images
+  return closestBeatIndex % images.length;
 };
