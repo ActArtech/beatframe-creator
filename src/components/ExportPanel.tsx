@@ -51,17 +51,20 @@ const ExportPanel = ({ images, audioFile, beats, isProcessing }: ExportPanelProp
         }
       });
       
-      // Create download link
+      // Create and trigger download link
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'beatframe-video.mp4';
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       
       // Clean up
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
       
       setIsComplete(true);
       toast.success('Video exported successfully!');
