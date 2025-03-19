@@ -11,6 +11,7 @@ interface DropZoneProps {
   icon?: React.ReactNode;
   className?: string;
   multiple?: boolean;
+  id?: string; // Add id prop
 }
 
 const DropZone = ({
@@ -20,7 +21,8 @@ const DropZone = ({
   label,
   icon,
   className,
-  multiple = true
+  multiple = true,
+  id
 }: DropZoneProps) => {
   const [isActive, setIsActive] = useState(false);
 
@@ -83,6 +85,7 @@ const DropZone = ({
     >
       <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
         <input
+          id={id}
           type="file"
           accept={accept}
           onChange={handleFileInput}

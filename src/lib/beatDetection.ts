@@ -28,8 +28,8 @@ export class BeatDetector {
       // Reset beats
       this.beats = [];
       
-      // Return promise to be resolved when processing is complete
-      return this.detectBeats();
+      // We don't return the result of detectBeats here
+      // just prepare the audio buffer
     } catch (error) {
       console.error('Error loading audio:', error);
       throw error;
@@ -54,7 +54,7 @@ export class BeatDetector {
 
     const analyser = offlineContext.createAnalyser();
     analyser.fftSize = 1024;
-    const bufferLength = analyser.frequenciesBinCount;
+    const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
     // Connect nodes
@@ -150,7 +150,7 @@ export class BeatDetector {
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 256;
     
-    const bufferLength = this.analyser.frequenciesBinCount;
+    const bufferLength = this.analyser.frequencyBinCount;
     this.dataArray = new Uint8Array(bufferLength);
     
     this.source.connect(this.analyser);

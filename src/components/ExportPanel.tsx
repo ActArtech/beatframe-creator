@@ -71,8 +71,8 @@ const ExportPanel = ({ images, audioFile, beats, isProcessing }: ExportPanelProp
         setIsComplete(false);
       }, 3000);
     } catch (error) {
-      toast.error('Failed to export video. Please try again.');
       console.error('Export error:', error);
+      toast.error('Failed to export video. Please try again.');
     } finally {
       setIsExporting(false);
     }

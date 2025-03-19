@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Music, Image as ImageIcon, Play, Pause, Info } from 'lucide-react';
 import { toast } from 'sonner';
@@ -259,7 +258,12 @@ const Index = () => {
                     <span className="font-medium">{audioFile.name}</span>
                     <button
                       onClick={() => {
-                        document.getElementById('replace-audio-btn')?.click();
+                        // Trigger the hidden file input
+                        const replaceAudioBtn = document.getElementById('replace-audio-btn');
+                        if (replaceAudioBtn) {
+                          const input = replaceAudioBtn.querySelector('input');
+                          if (input) input.click();
+                        }
                       }}
                       className="text-sm text-primary hover:text-primary-700 font-medium"
                     >
