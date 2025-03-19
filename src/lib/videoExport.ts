@@ -15,7 +15,6 @@ interface ExportOptions {
   onProgress: (progress: number) => void;
 }
 
-// This is a complete rewrite of the export function to ensure it creates a valid MP4 file
 export const exportVideo = async ({
   images,
   audioFile,
@@ -31,74 +30,152 @@ export const exportVideo = async ({
       return;
     }
 
-    // Simulating video processing steps
-    const totalSteps = 5;
-    let currentStep = 0;
+    // Create an offscreen canvas for rendering frames
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
 
-    // Step 1: Prepare audio
-    setTimeout(() => {
-      currentStep++;
-      onProgress((currentStep / totalSteps) * 100);
-      console.log('Preparing audio track...');
+    // Create a stream from the canvas
+    const stream = canvas.captureStream(fps);
+    
+    // Create an audio element for the audio track
+    const audio = new Audio();
+    const audioUrl = URL.createObjectURL(audioFile);
+    audio.src = audioUrl;
+    
+    // Connect audio to the stream
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaElementSource(audio);
+    const destination = audioCtx.createMediaStreamDestination();
+    source.connect(destination);
+    source.connect(audioCtx.destination);  // Also connect to speakers
+    
+    // Add audio tracks to the stream
+    destination.stream.getAudioTracks().forEach(track => {
+      stream.addTrack(track);
+    });
+    
+    // Set up MediaRecorder with the combined stream
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm; codecs=vp9',
+      videoBitsPerSecond: 5000000
+    });
+    
+    const chunks: Blob[] = [];
+    
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+    
+    mediaRecorder.onstop = async () => {
+      // Clean up resources
+      URL.revokeObjectURL(audioUrl);
       
-      // Step 2: Prepare image sequence
-      setTimeout(() => {
-        currentStep++;
-        onProgress((currentStep / totalSteps) * 100);
-        console.log('Processing image sequence...');
+      // Create the final video blob from all chunks
+      const videoBlob = new Blob(chunks, { type: 'video/webm' });
+      
+      // Report progress
+      onProgress(100);
+      console.log('Finalizing video...');
+      
+      resolve(videoBlob);
+    };
+    
+    // Start recording
+    mediaRecorder.start(1000); // Collect data in 1-second chunks
+    
+    // Prepare for rendering frames
+    let currentImageIndex = 0;
+    let lastBeatTime = 0;
+    let startTime = performance.now();
+    
+    // Report initial progress
+    onProgress(10);
+    console.log('Preparing audio track...');
+    
+    // Play the audio
+    audio.play();
+    
+    // Report next progress step
+    onProgress(20);
+    console.log('Processing image sequence...');
+    
+    // Animation function to render frames based on beat timing
+    const renderFrame = () => {
+      const currentTime = (performance.now() - startTime) / 1000;
+      
+      // Find the current beat
+      let currentBeatIndex = 0;
+      for (let i = 0; i < beats.length; i++) {
+        if (beats[i].time <= currentTime) {
+          currentBeatIndex = i;
+        } else {
+          break;
+        }
+      }
+      
+      // If we've hit a new beat, change the image
+      if (currentBeatIndex > 0 && beats[currentBeatIndex].time !== lastBeatTime) {
+        currentImageIndex = currentBeatIndex % images.length;
+        lastBeatTime = beats[currentBeatIndex].time;
+      }
+      
+      // Clear canvas and draw the current image
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Load and draw the current image
+      const img = new Image();
+      img.onload = () => {
+        // Calculate proportional sizing to fit within canvas
+        const imgRatio = img.width / img.height;
+        const canvasRatio = width / height;
         
-        // Step 3: Match images to beats
-        setTimeout(() => {
-          currentStep++;
-          onProgress((currentStep / totalSteps) * 100);
-          console.log('Synchronizing with beat data...');
-          
-          // Step 4: Render frames
-          setTimeout(() => {
-            currentStep++;
-            onProgress((currentStep / totalSteps) * 100);
-            console.log('Rendering video frames...');
-            
-            // Step 5: Finalize video
-            setTimeout(() => {
-              currentStep++;
-              onProgress((currentStep / totalSteps) * 100);
-              console.log('Finalizing video...');
-              
-              // Create a valid video blob
-              // In a real implementation, this would be an actual video file
-              // For demo purposes, we'll create a Blob with the correct MIME type
-              // that browsers will recognize as a valid MP4 file
-              
-              // Fallback approach when real video encoding is not available:
-              // Create an ArrayBuffer with MP4 signature bytes to make it a valid file
-              // that players will open (though it won't have real playable content)
-              const buffer = new ArrayBuffer(1024 * 1024); // 1MB file
-              const view = new DataView(buffer);
-              
-              // MP4 file signature bytes (ftyp box)
-              const signature = [
-                0x00, 0x00, 0x00, 0x18, // box size
-                0x66, 0x74, 0x79, 0x70, // ftyp
-                0x69, 0x73, 0x6F, 0x6D, // isom
-                0x00, 0x00, 0x00, 0x01, // minor version
-                0x69, 0x73, 0x6F, 0x6D, // compatible brand: isom
-                0x61, 0x76, 0x63, 0x31  // compatible brand: avc1
-              ];
-              
-              // Write signature bytes to the buffer
-              signature.forEach((byte, i) => {
-                view.setUint8(i, byte);
-              });
-              
-              // Create a valid MP4 Blob with the proper MIME type
-              const videoBlob = new Blob([buffer], { type: 'video/mp4' });
-              
-              resolve(videoBlob);
-            }, 1000);
-          }, 1000);
-        }, 800);
-      }, 800);
+        let drawWidth, drawHeight, x, y;
+        
+        if (imgRatio > canvasRatio) {
+          // Image is wider relative to canvas
+          drawWidth = width;
+          drawHeight = width / imgRatio;
+          x = 0;
+          y = (height - drawHeight) / 2;
+        } else {
+          // Image is taller relative to canvas
+          drawHeight = height;
+          drawWidth = height * imgRatio;
+          x = (width - drawWidth) / 2;
+          y = 0;
+        }
+        
+        ctx.drawImage(img, x, y, drawWidth, drawHeight);
+      };
+      img.src = images[currentImageIndex];
+      
+      // Update progress based on audio time
+      const progress = Math.min(90, 20 + (currentTime / audio.duration) * 70);
+      onProgress(progress);
+      
+      // Continue animating if we're still recording
+      if (currentTime < audio.duration) {
+        requestAnimationFrame(renderFrame);
+      } else {
+        // Stop recording when audio finishes
+        mediaRecorder.stop();
+        audio.pause();
+      }
+    };
+    
+    // Start the frame rendering
+    onProgress(30);
+    console.log('Synchronizing with beat data...');
+    
+    // Wait a moment for everything to initialize
+    setTimeout(() => {
+      startTime = performance.now();
+      renderFrame();
     }, 500);
   });
 };

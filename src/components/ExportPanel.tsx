@@ -55,7 +55,7 @@ const ExportPanel = ({ images, audioFile, beats, isProcessing }: ExportPanelProp
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'beatframe-video.mp4';
+      a.download = 'beatframe-video.webm'; // Changed to .webm since we're using webm format
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
